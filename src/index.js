@@ -6,36 +6,44 @@ function randomRange(min=0, max=1) {
   return Math.random() * (max - min) + min;
 }
 
-class Rectangle extends paper.Group {
+class Circle extends paper.Group {
   constructor(drawOptions) {
     super(drawOptions);
 
-    this.startX = drawOptions.point[0];
-    this.startY = drawOptions.point[1];
+    this.center = drawOptions.center;
+    this.radius = drawOptions.radius;
 
-    this.shape = new paper.Path.Rectangle(drawOptions);
+    this.shape = new paper.Path.Circle(drawOptions);
   }
 
   update(event) {
-      const index = Math.round(randomRange(0, 3));
-      const segment = this.shape.segments[index];
-      let newX = 0;
-      let newY = 0;
-      if (index < 2) {
-        newX = this.startX - randomRange(0, 60);
-      } else {
-        newX = this.startX + randomRange(0, 60);
-      }
+    const index = Math.round(randomRange(0, this.shape.segments.length-1));
+    const segment = this.shape.segments[index];
 
-      if (index === 0 || index == 3) {
-        newY = this.startY - randomRange(0, 60);
-      } else {
-        newY = this.startY + randomRange(0, 60);
-      }
+    const expandInX = this.radius + randomRange(0, this.radius * 5);
+    const expandInY = this.radius + randomRange(0, this.radius * 5);
+    const expandOutX = this.radius - randomRange(0, this.radius * 5);
+    const expandOutY = this.radius - randomRange(0, this.radius * 5);
 
-      segment.point.x = newX;
-      segment.point.y = newY;
+    switch (index) {
+    case 0:
+      segment.handleIn.x = expandOutX;
+      segment.handleIn.y = expandInY;
+      break;
+    case 1:
+      segment.handleIn.x = expandOutX;
+      segment.handleIn.y = expandOutY;
+      break;
+    case 2:
+      segment.handleIn.x = expandInX;
+      segment.handleIn.y = expandOutY;
+      break;
+    case 3:
+      segment.handleIn.x = expandInX;
+      segment.handleIn.y = expandInY;
+      break;
     }
+  }
 }
 
 class Grid {
@@ -51,16 +59,16 @@ class Grid {
     for (let i =0; i < columns; i++) {
       for (let j =0; j < rows; j++) {
         this.items.push(
-          new Rectangle({
-            point: [(i * this.cellWidth) + this.columnGutter, (j * this.cellHeight) + this.rowGutter],
-            size: [randomRange(0, this.cellWidth), randomRange(0, this.cellWidth)],
+          new Circle({
+            center: [(i * this.cellWidth), (j * this.cellHeight)],
+            radius: randomRange(0, this.cellWidth/2),
             strokeColor: 'black'
           })
         );
       }
     }
 
-    paper.view.onFrame = this.update.bind(this);
+   paper.view.onFrame = this.update.bind(this);
   }
 
 
