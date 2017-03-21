@@ -7,11 +7,6 @@ function randomRange(min=0, max=1) {
 }
 
 
-// |---1---|
-// |       |
-// 0       2
-// |       |
-// ----3----
 const segments = {
   1: ['left', 'bottom'],
   2: ['right', 'bottom'],
@@ -34,7 +29,8 @@ const pointsMap = {
   'bottom': ['bottomLeft', 'bottomRight']
 };
 
-function getPoint(rect, index) {
+
+function getPoint(rect, index, fResults) {
   let points = pointsMap[index];
   if (['left', 'right'].indexOf(index) > -1) {
     return new paper.Point(
@@ -48,6 +44,37 @@ function getPoint(rect, index) {
     );
   }
 };
+
+function getPointLerp(cell, index, fResults) {
+  let points = pointsMap[index];
+  switch (index) {
+    case 'right':
+      return new paper.Point(
+        cell.topRight.x,
+        cell.topRight.y + ((cell.bottomRight.y - cell.topRight.y) * ((1 - fResults[2]) / (fResults[1] - fResults[2])))
+      );
+      break;
+    case 'left':
+      return new paper.Point(
+        cell.topLeft.x,
+        cell.topLeft.y + ((cell.bottomLeft.y - cell.topLeft.y) * ((1 - fResults[3]) / (fResults[0] - fResults[3])))
+      );
+      break;
+    case 'top':
+      return new paper.Point(
+        cell.topLeft.x + ((cell.topRight.x - cell.topLeft.x) * ((1 - fResults[3]) / (fResults[2] - fResults[3]))),
+        cell.topLeft.y
+      );
+      break;
+    case 'bottom':
+      //      (x - x0) / (x1 - x0);
+      return new paper.Point(
+        cell.bottomRight.x - ((cell.bottomRight.x - cell.bottomLeft.x) * ((1 - fResults[1]) / (fResults[0] - fResults[1]))),
+        cell.bottomLeft.y
+      );
+      break;
+  }
+}
 
 class Circle extends paper.Group {
   constructor(drawOptions) {
@@ -86,59 +113,130 @@ class Circle extends paper.Group {
   }
 }
 
-class Grid {
+class App {
+  constructor(rows, columns, rowHeight, columnWidth, rowGutter, columnGutter) {
+    this.columnWidth = columnWidth;
+    this.rowHeight = rowHeight;
+    this.columnGutter = columnGutter;
+    this.rowGutter = rowGutter;
 
-  constructor(rows, columns) {
-    this.cellWidth = 20;
-    this.cellHeight = 20;
-    this.columnGutter = 0;
-    this.rowGutter = 0;
+    this.grid = this.makeGrid(rows, columns);
+    this.circles = this.makeCircles(rows, columns);
+    paper.view.onFrame = this.update.bind(this);
+  }
 
-    this.cells = [];
-
+  makeGrid(rows, columns) {
+    const grid = [];
     for (let i =0; i < columns; i++) {
       for (let j =0; j < rows; j++) {
-        this.cells.push(
+        grid.push(
           new paper.Rectangle({
-            point: [(i * this.cellWidth) + this.columnGutter, (j * this.cellHeight) + this.rowGutter],
-            size: [this.cellWidth, this.cellHeight]
+            point: [(i * this.columnWidth) + this.columnGutter, (j * this.rowHeight) + this.rowGutter],
+            size: [this.columnWidth, this.rowHeight]
           })
         );
       }
     }
+    return grid;
+  }
 
-    this.circle = new Circle({
-      center: [(rows / 2) * this.cellWidth, (columns / 2) * this.cellHeight],
-      radius: 50,
-      strokeColor: 'black'
+  makeCircles(rows, columns) {
+    const circles = new Array();
+    const circle1 = new Circle({
+      center: [((rows / 2) * this.columnWidth) - 123, ((columns / 3) * this.rowHeight) - 54],
+      radius: 100,
+      strokeColor: 'grey'
     });
 
-    paper.view.onFrame = this.update.bind(this);
+    const circle2 = new Circle({
+      center: [(rows / 4) * this.columnWidth, (columns / 3) * this.rowHeight],
+      radius: 120,
+      strokeColor: 'grey'
+    });
+    circles.push(circle1);
+    circles.push(circle2)
+
+    return circles;
+  }
+
+  insideCircle(cell) {
+    let result = 0b0000;
+    let fResults = [0, 0, 0, 0];
+
+    for (let index = 0; index < this.circles.length; index++) {
+      const circle = this.circles[index];
+      let [result1, fResults1] = circle.contains(cell);
+      result = result | result1;
+      fResults = fResults1.map((res, idx) => Math.max(res, fResults[idx]));
+    }
+    return [result, fResults];
   }
 
   debug() {
-    for (let index in this.cells) {
-      const cell = new paper.Path.Rectangle(this.cells[index]);
-      cell.strokeColor = 'blue';
+    for (let index in this.grid) {
+      const cell = new paper.Path.Rectangle(this.grid[index]);
+      cell.strokeColor = 'grey';
     }
   }
 
   getIntersections() {
-    for (let index in this.cells) {
-      const cell = this.cells[index];
-      let [score, fResults] = this.circle.contains(cell);
+    for (let index in this.grid) {
+      const cell = this.grid[index];
+      let [score, fResults] = this.insideCircle(cell);
+
+      // if (score > 0) {
+      //   let segment_label = new PointText(cell.topLeft + 40);
+      //   segment_label.content = score;
+      //   segment_label.strokeColor = 'red';
+      // }
 
       //TODO skip 10 and 5 for now
       if (score > 0 && score < 15 && score != 10 && score != 5) {
         let segment = segments[score];
-        let fromPoint = getPoint(cell, segment[0]);
-        let toPoint = getPoint(cell, segment[1]);
+
+        let color = 'red'
+
+        // let text = new PointText(cell.bottomLeft);
+        // text.content = fResults[0].toFixed(2);
+
+        // let text1 = new PointText(cell.bottomRight);
+        // text1.content = fResults[1].toFixed(2)
+
+        // let text2 = new PointText(cell.topRight);
+        // text2.content = fResults[2].toFixed(2);
+
+        // let text3 = new PointText(cell.topLeft);
+        // text3.content = fResults[3].toFixed(2);
+
+        let fromPointLerp = getPointLerp(cell, segment[0], fResults);
+        let toPointLerp = getPointLerp(cell, segment[1], fResults);
 
         new paper.Path.Line({
-          from: fromPoint,
-          to: toPoint,
-          strokeColor: 'black'
+          from: fromPointLerp,
+          to: toPointLerp,
+          strokeColor: color
         });
+
+        // let fromPoint = getPoint(cell, segment[0], fResults);
+        // let toPoint = getPoint(cell, segment[1], fResults);
+
+        // new paper.Path.Line({
+        //   from: fromPoint,
+        //   to: toPoint,
+        //   strokeColor: 'red'
+        // });
+        // new paper.Path.Circle({
+        //   center: fromPoint,
+        //   radius: 3,
+        //   strokeColor: color
+        // });
+
+        // new paper.Path.Circle({
+        //   center: toPoint,
+        //   radius: 3,
+        //   strokeColor: color,
+        //   fillColor: color
+        // });
       }
     }
   }
@@ -153,6 +251,6 @@ class Grid {
 }
 
 
-const grid = new Grid(32, 32);
-grid.debug();
-grid.getIntersections();
+const app = new App(100, 100, 10, 10, 0, 0);
+app.debug();
+app.getIntersections();
