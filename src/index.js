@@ -7,11 +7,6 @@ function randomRange(min=0, max=1) {
 }
 
 
-// |---1---|
-// |       |
-// 0       2
-// |       |
-// ----3----
 const segments = {
   1: ['left', 'bottom'],
   2: ['right', 'bottom'],
@@ -86,47 +81,76 @@ class Circle extends paper.Group {
   }
 }
 
-class Grid {
+class App {
+  constructor(rows, columns, rowHeight, columnWidth, rowGutter, columnGutter) {
+    this.columnWidth = columnWidth;
+    this.rowHeight = rowHeight;
+    this.columnGutter = columnGutter;
+    this.rowGutter = rowGutter;
 
-  constructor(rows, columns) {
-    this.cellWidth = 20;
-    this.cellHeight = 20;
-    this.columnGutter = 0;
-    this.rowGutter = 0;
+    this.grid = this.makeGrid(rows, columns);
+    this.circles = this.makeCircles(rows, columns);
+    paper.view.onFrame = this.update.bind(this);
+  }
 
-    this.cells = [];
-
+  makeGrid(rows, columns) {
+    const grid = [];
     for (let i =0; i < columns; i++) {
       for (let j =0; j < rows; j++) {
-        this.cells.push(
+        grid.push(
           new paper.Rectangle({
-            point: [(i * this.cellWidth) + this.columnGutter, (j * this.cellHeight) + this.rowGutter],
-            size: [this.cellWidth, this.cellHeight]
+            point: [(i * this.columnWidth) + this.columnGutter, (j * this.rowHeight) + this.rowGutter],
+            size: [this.columnWidth, this.rowHeight]
           })
         );
       }
     }
+    return grid;
+  }
 
-    this.circle = new Circle({
-      center: [(rows / 2) * this.cellWidth, (columns / 2) * this.cellHeight],
-      radius: 50,
-      strokeColor: 'black'
+  makeCircles(rows, columns) {
+    const circles = new Array();
+    const circle1 = new Circle({
+      center: [(rows / 2) * this.columnWidth, (columns / 2) * this.rowHeight],
+      radius: 80,
+      strokeColor: 'white'
     });
 
-    paper.view.onFrame = this.update.bind(this);
+    const circle2 = new Circle({
+      center: [(rows / 3) * this.columnWidth, (columns / 2) * this.rowHeight],
+      radius: 90,
+      strokeColor: 'white'
+    });
+    circles.push(circle1);
+    circles.push(circle2)
+
+    return circles;
+  }
+
+  insideCircle(cell) {
+    let result = 0b0000;
+    let fResults = [];
+
+    for (let index = 0; index < this.circles.length; index++) {
+      const circle = this.circles[index];
+      let [result1, fResults1] = circle.contains(cell);
+      result += result1;
+      //TODO what to do with fResults?
+    }
+    return [result, fResults];
   }
 
   debug() {
-    for (let index in this.cells) {
-      const cell = new paper.Path.Rectangle(this.cells[index]);
+    for (let index in this.grid) {
+      const cell = new paper.Path.Rectangle(this.grid[index]);
       cell.strokeColor = 'blue';
     }
   }
 
   getIntersections() {
-    for (let index in this.cells) {
-      const cell = this.cells[index];
-      let [score, fResults] = this.circle.contains(cell);
+    for (let index in this.grid) {
+      const cell = this.grid[index];
+      let [score, fResults] = this.insideCircle(cell);
 
       //TODO skip 10 and 5 for now
       if (score > 0 && score < 15 && score != 10 && score != 5) {
@@ -153,6 +177,6 @@ class Grid {
 }
 
 
-const grid = new Grid(32, 32);
-grid.debug();
-grid.getIntersections();
+const app = new App(40, 40, 10, 10, 0, 0);
+//grid.debug();
+app.getIntersections();
